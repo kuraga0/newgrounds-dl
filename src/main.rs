@@ -2,6 +2,7 @@ use clap::Parser;
 use colored::Colorize;
 use downloader::Downloader;
 
+use std::env::args;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -39,6 +40,11 @@ fn check_path_and_panic(path: PathBuf) {
 	if path.exists() {
 		panic!("{} File already exists: {}", "ERROR:".red(), path.display());
 	}
+}
+
+fn open_and_exit(url: &str) {
+	open::that(url).unwrap_or_default();
+	std::process::exit(0);
 }
 
 fn main() {
@@ -80,6 +86,10 @@ fn main() {
 			info!("Cannot found title.");
 		}
 
+		if args.open_in_browser {
+			open_and_exit(&audio);
+		}
+
 		let filename = audio.rsplit('/').next().unwrap().rsplit("?").last();
 
 		if let Some(f) = filename {
@@ -119,6 +129,10 @@ fn main() {
 		let audio = convert_url(args.url, title);
 
 		info!("parsed: '{}'", audio);
+
+		if args.open_in_browser {
+			open_and_exit(&audio);
+		}
 
 		let filename = audio.rsplit('/').next().unwrap().rsplit("?").last();
 
