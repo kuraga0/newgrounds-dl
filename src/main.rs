@@ -2,6 +2,10 @@ use clap::Parser;
 use colored::Colorize;
 use downloader::Downloader;
 use std::path::Path;
+use std::path::PathBuf;
+
+use tracing::{debug, info};
+use tracing_subscriber::filter::LevelFilter;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -19,6 +23,9 @@ struct Args {
 
 	#[arg(short = 'b', long, default_value_t = false)]
 	open_in_browser: bool,
+
+	#[arg(short, long, action = clap::ArgAction::Count)]
+	verbose: u8,
 }
 
 fn convert_title(title: String) -> String {
@@ -122,7 +129,16 @@ impl downloader::progress::Reporter for SimpleReporter {
 fn main() {
 	let args = Args::parse();
 
-	println!("args: {:#?}", args);
+	let level = match args.verbose {
+		0 => LevelFilter::WARN,
+		1 => LevelFilter::INFO,
+		2 => LevelFilter::DEBUG,
+		_ => LevelFilter::TRACE,
+	};
+
+	tracing_subscriber::fmt().with_max_level(level).init();
+
+	debug!("args: {:#?}", args);
 
 	if args.parse_page {
 		if args.title.is_some() {
@@ -132,7 +148,7 @@ fn main() {
 			)
 		}
 
-		println!("Requesting page...");
+		info!("Requesting page...");
 
 		let body = match get_page_body(args.url) {
 			Ok(b) => b,
@@ -162,12 +178,25 @@ fn main() {
 		}
 		let audio = audio.unwrap();
 
-		println!("Found audio download link: '{}'", audio);
+		info!("Found audio download link: '{}'", audio);
 
 		if let Some(t) = title {
-			println!("Found title: '{:?}'", t);
+			info!("Found title: '{}'", t);
 		} else {
-			println!("Cannot found title.");
+			info!("Cannot found title.");
+		}
+
+		if let Some(f) = audio.rsplit('/').next().unwrap().rsplit("?").last() {
+      debug!("f: {}", f);
+			let output_path = PathBuf::from(&args.output_dir).join(f);
+
+			if output_path.exists() {
+				panic!(
+					"{} File already exists: {}",
+					"ERROR:".red(),
+					output_path.display()
+				);
+			}
 		}
 
 		let mut downloader = Downloader::builder()
@@ -185,9 +214,9 @@ fn main() {
 
 		for r in result {
 			match r {
-				Err(e) => println!("Error: {e}"),
+				Err(e) => println!("{} {e}", "ERROR:".red()),
 				Ok(s) => {
-					println!("Success: {s}");
+					info!("Success: {s}");
 				}
 			}
 		}
