@@ -35,6 +35,12 @@ struct Args {
 	verbose: u8,
 }
 
+fn check_path_and_panic(path: PathBuf) {
+	if path.exists() {
+		panic!("{} File already exists: {}", "ERROR:".red(), path.display());
+	}
+}
+
 fn main() {
 	let args = Args::parse();
 
@@ -77,16 +83,7 @@ fn main() {
 		let filename = audio.rsplit('/').next().unwrap().rsplit("?").last();
 
 		if let Some(f) = filename {
-			debug!("f: {}", f);
-			let output_path = PathBuf::from(&args.output_dir).join(f);
-
-			if output_path.exists() {
-				panic!(
-					"{} File already exists: {}",
-					"ERROR:".red(),
-					output_path.display()
-				);
-			}
+			check_path_and_panic(PathBuf::from(&args.output_dir).join(f));
 		}
 
 		println!("Downloading {}", filename.unwrap());
@@ -118,6 +115,38 @@ fn main() {
 				"false".italic()
 			)
 		});
-		println!("parsed: '{}'", convert_url(args.url, title));
+
+		let audio = convert_url(args.url, title);
+
+		info!("parsed: '{}'", audio);
+
+		let filename = audio.rsplit('/').next().unwrap().rsplit("?").last();
+
+		if let Some(f) = filename {
+			check_path_and_panic(PathBuf::from(&args.output_dir).join(f));
+		}
+
+		let mut downloader = Downloader::builder()
+			.download_folder(Path::new(&args.output_dir))
+			.parallel_requests(1)
+			.build()
+			.unwrap();
+
+		let dl = downloader::Download::new(&audio);
+		let dl = dl.progress(SimpleReporter::create());
+
+		let result = downloader.download(&[dl]).unwrap();
+
+		for r in result {
+			match r {
+				Err(e) => {
+					println!("{} {e}", "ERROR:".red());
+					std::fs::remove_file(filename.unwrap()).unwrap();
+				}
+				Ok(s) => {
+					info!("Success: {s}");
+				}
+			}
+		}
 	}
 }
