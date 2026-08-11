@@ -6,6 +6,6 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.6.6", features = ["derive"] }
 colored = "3.1.1"
-downloader = "0.2.8"
+stream-download = "0.24.3"
 tl = "0.7.8"
 ureq = "3.4.0"
