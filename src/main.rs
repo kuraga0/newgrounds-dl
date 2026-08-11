@@ -1,12 +1,16 @@
 use clap::Parser;
+use colored::Colorize;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
 	url: String,
 
-	#[arg(short = 'n', long, default_value = None)]
-	name: Option<String>,
+	#[arg(short = 'p', long, default_value_t = true, action = clap::ArgAction::Set)]
+	parse_page: bool,
+
+	#[arg(short = 't', long, default_value = None)]
+	title: Option<String>,
 
 	#[arg(short, long, default_value = None)]
 	output: Option<String>,
@@ -58,10 +62,21 @@ fn main() {
 
 	println!("args: {:#?}", args);
 
-	let name = args.name.clone().unwrap_or_else(|| {
-		println!("getting track name...");
-		String::new()
-	});
-
-	println!("parsed: '{}'", convert_url(args.url, name));
+	if args.parse_page {
+		if args.title.is_some() {
+			println!(
+				"{} No need to specify the track title if `parse_page` is on (by default).",
+				"WARN:".yellow()
+			)
+		}
+	} else {
+		let title = args.title.clone().unwrap_or_else(|| {
+			panic!(
+				"{} If `parse_page` is {}, you need to specify the track title.",
+				"ERROR:".red(),
+				"false".italic()
+			)
+		});
+		println!("parsed: '{}'", convert_url(args.url, title));
+	}
 }
