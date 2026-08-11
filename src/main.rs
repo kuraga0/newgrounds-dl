@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use clap::Parser;
 use colored::Colorize;
 
@@ -6,6 +8,7 @@ use tracing_subscriber::filter::LevelFilter;
 
 mod download;
 mod parse_page;
+mod tag;
 mod url_convert;
 use crate::url_convert::*;
 
@@ -25,6 +28,9 @@ struct Args {
 
 	#[arg(short = 'b', long, default_value_t = false)]
 	open_in_browser: bool,
+
+	#[arg(short = 'm', long, default_value_t = true)]
+	tag_title: bool,
 
 	#[arg(short, long, action = clap::ArgAction::Count)]
 	verbose: u8,
@@ -68,7 +74,7 @@ fn main() {
 
 		info!("Found audio download link: '{}'", audio);
 
-		if let Some(t) = track.title {
+		if let Some(ref t) = track.title {
 			info!("Found title: '{}'", t);
 		} else {
 			info!("Cannot found title.");
@@ -92,6 +98,10 @@ fn main() {
 				}
 				Ok(s) => {
 					info!("Success: {s}");
+					tag::tag_title(
+						Path::new(filename.unwrap()),
+						track.title.clone().unwrap().as_str(),
+					);
 				}
 			}
 		}
@@ -124,6 +134,10 @@ fn main() {
 				}
 				Ok(s) => {
 					info!("Success: {s}");
+					tag::tag_title(
+						Path::new(filename.unwrap()),
+						args.title.clone().unwrap().as_str(),
+					);
 				}
 			}
 		}

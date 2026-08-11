@@ -2,6 +2,7 @@ use colored::Colorize;
 
 pub struct Track {
 	pub title: Option<String>,
+  // url.mp3
 	pub audio: Option<String>,
 }
 
