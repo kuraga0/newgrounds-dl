@@ -57,6 +57,10 @@ fn convert_url(url: String, name: String) -> String {
 	)
 }
 
+fn get_page_body(url: String) -> Result<String, Box<dyn std::error::Error>> {
+	Ok(ureq::get(url).call()?.body_mut().read_to_string()?)
+}
+
 fn main() {
 	let args = Args::parse();
 
@@ -69,6 +73,37 @@ fn main() {
 				"WARN:".yellow()
 			)
 		}
+
+		println!("Requesting page...");
+
+		let body = match get_page_body(args.url) {
+			Ok(b) => b,
+			Err(e) => panic!("{} Request page error: {}", "ERROR:".red(), e),
+		};
+
+		let dom = tl::parse(&body, tl::ParserOptions::default()).unwrap();
+		let parser = dom.parser();
+		let title = dom
+			.query_selector("title")
+			.unwrap()
+			.next()
+			.and_then(|h| h.get(parser))
+			.map(|n| n.inner_text(parser));
+
+		let audio = dom
+			.query_selector("meta[property=\"og:audio\"]")
+			.unwrap()
+			.next()
+			.and_then(|h| h.get(parser))
+			.and_then(|n| n.as_tag())
+			.and_then(|tag| tag.attributes().get("content").flatten())
+			.map(|b| b.as_utf8_str().to_string());
+
+		println!(
+			"Found title: '{}' audio: '{}'",
+			title.unwrap_or_default(),
+			audio.unwrap_or_default()
+		);
 	} else {
 		let title = args.title.clone().unwrap_or_else(|| {
 			panic!(
