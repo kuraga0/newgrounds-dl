@@ -1,10 +1,5 @@
 use clap::Parser;
 use colored::Colorize;
-use downloader::Downloader;
-
-use std::env::args;
-use std::path::Path;
-use std::path::PathBuf;
 
 use tracing::{debug, info};
 use tracing_subscriber::filter::LevelFilter;
@@ -12,7 +7,6 @@ use tracing_subscriber::filter::LevelFilter;
 mod download;
 mod parse_page;
 mod url_convert;
-use crate::download::SimpleReporter;
 use crate::url_convert::*;
 
 #[derive(Parser, Debug)]
@@ -34,12 +28,6 @@ struct Args {
 
 	#[arg(short, long, action = clap::ArgAction::Count)]
 	verbose: u8,
-}
-
-fn check_path_and_panic(path: PathBuf) {
-	if path.exists() {
-		panic!("{} File already exists: {}", "ERROR:".red(), path.display());
-	}
 }
 
 fn open_and_exit(url: &str) {
@@ -92,26 +80,16 @@ fn main() {
 
 		let filename = audio.rsplit('/').next().unwrap().rsplit("?").last();
 
-		if let Some(f) = filename {
-			check_path_and_panic(PathBuf::from(&args.output_dir).join(f));
-		}
-
 		println!("Downloading {}", filename.unwrap());
 
-		let mut downloader = Downloader::builder()
-			.download_folder(Path::new(&args.output_dir))
-			.parallel_requests(1)
-			.build()
-			.unwrap();
-
-		let dl = downloader::Download::new(&audio);
-		let dl = dl.progress(SimpleReporter::create());
-
-		let result = downloader.download(&[dl]).unwrap();
+		let result = download::download_audio(&audio, args.output_dir).unwrap();
 
 		for r in result {
 			match r {
-				Err(e) => println!("{} {e}", "ERROR:".red()),
+				Err(e) => {
+					println!("{} {e}", "ERROR:".red());
+					std::fs::remove_file(filename.unwrap()).unwrap();
+				}
 				Ok(s) => {
 					info!("Success: {s}");
 				}
@@ -134,22 +112,9 @@ fn main() {
 			open_and_exit(&audio);
 		}
 
+		let result = download::download_audio(&audio, args.output_dir).unwrap();
+
 		let filename = audio.rsplit('/').next().unwrap().rsplit("?").last();
-
-		if let Some(f) = filename {
-			check_path_and_panic(PathBuf::from(&args.output_dir).join(f));
-		}
-
-		let mut downloader = Downloader::builder()
-			.download_folder(Path::new(&args.output_dir))
-			.parallel_requests(1)
-			.build()
-			.unwrap();
-
-		let dl = downloader::Download::new(&audio);
-		let dl = dl.progress(SimpleReporter::create());
-
-		let result = downloader.download(&[dl]).unwrap();
 
 		for r in result {
 			match r {

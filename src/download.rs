@@ -1,4 +1,8 @@
 use colored::Colorize;
+use downloader::DownloadSummary;
+use downloader::Downloader;
+use std::path::Path;
+use std::path::PathBuf;
 
 #[allow(dead_code)]
 struct SimpleReporterPrivate {
@@ -39,12 +43,7 @@ impl downloader::progress::Reporter for SimpleReporter {
 				|bytes| format!("{:.2}", bytes as f64 / 1_000_000.0),
 			);
 			if p.last_update.elapsed().as_millis() >= 1000 {
-				println!(
-					"{} {:.2}/{} mb.",
-					"::".blue(),
-					current_mb,
-					max_bytes,
-				);
+				println!("{} {:.2}/{} mb.", "::".blue(), current_mb, max_bytes,);
 				p.last_update = std::time::Instant::now();
 			}
 		}
@@ -58,4 +57,32 @@ impl downloader::progress::Reporter for SimpleReporter {
 		_ = self.private.lock().unwrap().take();
 		println!("{} downloading: [DONE]", "::".blue());
 	}
+}
+
+fn check_path_and_panic(path: PathBuf) {
+	if path.exists() {
+		panic!("{} File already exists: {}", "ERROR:".red(), path.display());
+	}
+}
+
+pub fn download_audio(
+	url: &str,
+	output_dir: String,
+) -> Result<Vec<Result<DownloadSummary, downloader::Error>>, downloader::Error> {
+	let filename = url.rsplit('/').next().unwrap().rsplit("?").last();
+
+	if let Some(f) = filename {
+		check_path_and_panic(PathBuf::from(&output_dir).join(f));
+	}
+
+	let mut downloader = Downloader::builder()
+		.download_folder(Path::new(&output_dir))
+		.parallel_requests(1)
+		.build()
+		.unwrap();
+
+	let dl = downloader::Download::new(url);
+	let dl = dl.progress(SimpleReporter::create());
+
+	Ok(downloader.download(&[dl]).unwrap())
 }
