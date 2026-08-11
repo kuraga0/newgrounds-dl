@@ -1,3 +1,6 @@
+use colored::Colorize;
+
+#[allow(dead_code)]
 struct SimpleReporterPrivate {
 	last_update: std::time::Instant,
 	max_progress: Option<u64>,
@@ -37,8 +40,10 @@ impl downloader::progress::Reporter for SimpleReporter {
 			);
 			if p.last_update.elapsed().as_millis() >= 1000 {
 				println!(
-					"test file: {:.2} of {} megabytes. [{}]",
-					current_mb, max_bytes, p.message
+					"{} {:.2}/{} mb.",
+					"::".blue(),
+					current_mb,
+					max_bytes,
 				);
 				p.last_update = std::time::Instant::now();
 			}
@@ -46,11 +51,11 @@ impl downloader::progress::Reporter for SimpleReporter {
 	}
 
 	fn set_message(&self, message: &str) {
-		println!("test file: Message changed to: {message}");
+		println!("{} {message}", "::".blue());
 	}
 
 	fn done(&self) {
 		_ = self.private.lock().unwrap().take();
-		println!("test file: [DONE]");
+		println!("{} downloading: [DONE]", "::".blue());
 	}
 }

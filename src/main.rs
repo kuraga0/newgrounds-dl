@@ -74,7 +74,9 @@ fn main() {
 			info!("Cannot found title.");
 		}
 
-		if let Some(f) = audio.rsplit('/').next().unwrap().rsplit("?").last() {
+		let filename = audio.rsplit('/').next().unwrap().rsplit("?").last();
+
+		if let Some(f) = filename {
 			debug!("f: {}", f);
 			let output_path = PathBuf::from(&args.output_dir).join(f);
 
@@ -87,6 +89,8 @@ fn main() {
 			}
 		}
 
+		println!("Downloading {}", filename.unwrap());
+
 		let mut downloader = Downloader::builder()
 			.download_folder(Path::new(&args.output_dir))
 			.parallel_requests(1)
@@ -94,8 +98,6 @@ fn main() {
 			.unwrap();
 
 		let dl = downloader::Download::new(&audio);
-
-		// #[cfg(not(feature = "tui"))]
 		let dl = dl.progress(SimpleReporter::create());
 
 		let result = downloader.download(&[dl]).unwrap();
