@@ -1,7 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
 use downloader::Downloader;
-use std::env::temp_dir;
+use std::{env::temp_dir, path::Path};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -14,8 +14,8 @@ struct Args {
 	#[arg(short = 't', long, default_value = None)]
 	title: Option<String>,
 
-	#[arg(short, long, default_value = None)]
-	output: Option<String>,
+	#[arg(short, long, default_value_t = ".".to_string())]
+	output_dir: String,
 
 	#[arg(short = 'b', long, default_value_t = false)]
 	open_in_browser: bool,
@@ -172,7 +172,7 @@ fn main() {
     }
 
 		let mut downloader = Downloader::builder()
-			.download_folder(&temp_dir())
+			.download_folder(Path::new(&args.output_dir))
 			.parallel_requests(1)
 			.build()
 			.unwrap();
