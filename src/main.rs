@@ -1,7 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
 use downloader::Downloader;
-use std::{env::temp_dir, path::Path};
+use std::path::Path;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -164,12 +164,11 @@ fn main() {
 
 		println!("Found audio download link: '{}'", audio);
 
-    if title.is_some() {
-      println!("Found title: '{:?}'", title.unwrap());
-    }
-    else {
-      println!("Cannot found title.");
-    }
+		if let Some(t) = title {
+			println!("Found title: '{:?}'", t);
+		} else {
+			println!("Cannot found title.");
+		}
 
 		let mut downloader = Downloader::builder()
 			.download_folder(Path::new(&args.output_dir))
