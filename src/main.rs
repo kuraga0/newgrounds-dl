@@ -1,5 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
+use downloader::Downloader;
+use std::env::temp_dir;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -61,6 +63,62 @@ fn get_page_body(url: String) -> Result<String, Box<dyn std::error::Error>> {
 	Ok(ureq::get(url).call()?.body_mut().read_to_string()?)
 }
 
+struct SimpleReporterPrivate {
+	last_update: std::time::Instant,
+	max_progress: Option<u64>,
+	message: String,
+}
+struct SimpleReporter {
+	private: std::sync::Mutex<Option<SimpleReporterPrivate>>,
+}
+
+impl SimpleReporter {
+	fn create() -> std::sync::Arc<Self> {
+		std::sync::Arc::new(Self {
+			private: std::sync::Mutex::new(None),
+		})
+	}
+}
+
+impl downloader::progress::Reporter for SimpleReporter {
+	fn setup(&self, max_progress: Option<u64>, message: &str) {
+		let private = SimpleReporterPrivate {
+			last_update: std::time::Instant::now(),
+			max_progress,
+			message: message.to_owned(),
+		};
+
+		let mut guard = self.private.lock().unwrap();
+		*guard = Some(private);
+	}
+
+	fn progress(&self, current: u64) {
+		if let Some(p) = self.private.lock().unwrap().as_mut() {
+			let current_mb = current as f64 / 1_000_000.0;
+			let max_bytes = p.max_progress.map_or_else(
+				|| "{unknown}".to_owned(),
+				|bytes| format!("{:.2}", bytes as f64 / 1_000_000.0),
+			);
+			if p.last_update.elapsed().as_millis() >= 1000 {
+				println!(
+					"test file: {:.2} of {} megabytes. [{}]",
+					current_mb, max_bytes, p.message
+				);
+				p.last_update = std::time::Instant::now();
+			}
+		}
+	}
+
+	fn set_message(&self, message: &str) {
+		println!("test file: Message changed to: {message}");
+	}
+
+	fn done(&self) {
+		_ = self.private.lock().unwrap().take();
+		println!("test file: [DONE]");
+	}
+}
+
 fn main() {
 	let args = Args::parse();
 
@@ -99,11 +157,41 @@ fn main() {
 			.and_then(|tag| tag.attributes().get("content").flatten())
 			.map(|b| b.as_utf8_str().to_string());
 
-		println!(
-			"Found title: '{}' audio: '{}'",
-			title.unwrap_or_default(),
-			audio.unwrap_or_default()
-		);
+		if audio.is_none() {
+			panic!("{} Cannot find audio url.", "ERROR:".red());
+		}
+		let audio = audio.unwrap();
+
+		println!("Found audio download link: '{}'", audio);
+
+    if title.is_some() {
+      println!("Found title: '{:?}'", title.unwrap());
+    }
+    else {
+      println!("Cannot found title.");
+    }
+
+		let mut downloader = Downloader::builder()
+			.download_folder(&temp_dir())
+			.parallel_requests(1)
+			.build()
+			.unwrap();
+
+		let dl = downloader::Download::new(&audio);
+
+		// #[cfg(not(feature = "tui"))]
+		let dl = dl.progress(SimpleReporter::create());
+
+		let result = downloader.download(&[dl]).unwrap();
+
+		for r in result {
+			match r {
+				Err(e) => println!("Error: {e}"),
+				Ok(s) => {
+					println!("Success: {s}");
+				}
+			}
+		}
 	} else {
 		let title = args.title.clone().unwrap_or_else(|| {
 			panic!(
